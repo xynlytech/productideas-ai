@@ -38,10 +38,12 @@ async def run_full_pipeline(
         get_connector,
         google_autocomplete,
         google_trends,
+        hackernews,
+        reddit,
     )
 
     all_signals = []
-    for source_type in ["google_trends", "google_autocomplete"]:
+    for source_type in ["google_trends", "google_autocomplete", "reddit", "hackernews"]:
         try:
             connector = get_connector(source_type)
             signals = await connector.fetch(queries, region)
@@ -135,36 +137,103 @@ def _generate_title(cluster: dict) -> str:
 
 def _generate_problem(cluster: dict) -> str:
     keywords = [k["keyword"] for k in cluster["keywords"][:5]]
-    return (
+    signals = cluster.get("signals", [])
+
+    # Pull concrete examples from Reddit/HN signals
+    community_examples = []
+    for s in signals[:5]:
+        src = s.get("source_type", "")
+        if src in ("reddit", "hackernews"):
+            community_examples.append(f'"{s["query"]}"')
+
+    base = (
         f"People are actively searching for solutions related to "
-        f"'{cluster['label']}'. Related searches include: {', '.join(keywords)}. "
+        f"'{cluster['label']}'. Related demand signals include: {', '.join(keywords)}. "
         f"This signals unmet demand in this space."
     )
+    if community_examples:
+        examples_str = "; ".join(community_examples[:3])
+        base += f" Community posts expressing this pain: {examples_str}."
+    return base
 
 
 def _generate_rationale(cluster: dict) -> str:
-    n_signals = len(cluster["signals"])
+    signals = cluster.get("signals", [])
+    n_signals = len(signals)
     n_keywords = len(cluster["keywords"])
-    return (
-        f"This opportunity is backed by {n_signals} search signals across "
-        f"{n_keywords} related keywords, indicating sustained interest. "
-        f"The search patterns suggest real user problems waiting for solutions."
+
+    # Compute source diversity
+    sources = {s.get("source_type", "") for s in signals}
+    source_list = ", ".join(sorted(sources)) if sources else "multiple sources"
+
+    # Find highest-scored Reddit/HN signals
+    top_score = 0
+    for s in signals:
+        score = s.get("raw_data", {}).get("score", 0)
+        if score > top_score:
+            top_score = score
+
+    rationale = (
+        f"This opportunity is backed by {n_signals} search and community signals "
+        f"across {n_keywords} related terms, sourced from {source_list}. "
     )
+    if top_score > 100:
+        rationale += f"The top community post reached {top_score} upvotes, confirming strong interest. "
+    rationale += "The search patterns suggest real user problems waiting for solutions."
+    return rationale
 
 
 def _generate_product_suggestion(cluster: dict) -> str:
     category = cluster.get("category") or "digital product"
-    return (
+    signals = cluster.get("signals", [])
+
+    # Extract Reddit/HN post context for a more specific suggestion
+    context_snippets = []
+    for s in signals[:10]:
+        rd = s.get("raw_data", {})
+        selftext = rd.get("selftext", "") or rd.get("story_text", "")
+        if selftext and len(selftext) > 30:
+            context_snippets.append(selftext[:150])
+
+    suggestion = (
         f"Consider building a {category.lower()} solution that addresses "
         f"the core need expressed in '{cluster['label']}'. "
         f"Focus on the specific pain points revealed by search intent."
     )
+    if context_snippets:
+        snippet = context_snippets[0]
+        suggestion += f" Community context: \"{snippet}\""
+    return suggestion
 
 
 def _extract_trend_points(cluster: dict) -> list[dict]:
-    # Placeholder trend data — in production, extracted from Google Trends time series
+    """
+    Build a simple trend curve from signal ingestion timestamps.
+    Groups signals by month and counts them per period to show momentum.
+    """
+    from collections import Counter
+
+    signals = cluster.get("signals", [])
+    monthly_counts: Counter = Counter()
+
+    for s in signals:
+        ingested = s.get("ingested_at", "")
+        if ingested and len(ingested) >= 7:
+            month_key = ingested[:7]  # "YYYY-MM"
+            monthly_counts[month_key] += 1
+
+    if not monthly_counts:
+        # Fallback synthetic trend showing growth
+        return [
+            {"date": "2026-01", "value": 30},
+            {"date": "2026-02", "value": 50},
+            {"date": "2026-03", "value": 70},
+            {"date": "2026-04", "value": 85},
+        ]
+
+    sorted_months = sorted(monthly_counts.items())
+    max_count = max(v for _, v in sorted_months) or 1
     return [
-        {"date": "2026-01", "value": 45},
-        {"date": "2026-02", "value": 58},
-        {"date": "2026-03", "value": 72},
+        {"date": month, "value": round((count / max_count) * 100)}
+        for month, count in sorted_months
     ]

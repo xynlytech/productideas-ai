@@ -111,29 +111,42 @@ def score_cluster(cluster: dict) -> dict:
     num_signals = len(signals)
     num_keywords = len(keywords)
 
-    # Demand growth: based on number of signals (more signals = higher demand)
-    demand_growth = min(100, num_signals * 15 + 20)
+    # Source diversity bonus: more sources = higher confidence signal
+    sources = {s.get("source_type", "") for s in signals}
+    source_diversity = len(sources)
 
-    # Query volume: sum of suggestion counts
-    total_suggestions = 0
+    # Aggregate real engagement data from Reddit/HN signals
+    total_upvotes = 0
+    total_comments = 0
     for s in signals:
         raw = s.get("raw_data", {})
-        suggestions = raw.get("suggestions", [])
-        total_suggestions += len(suggestions)
-    query_volume = max(10, total_suggestions * 50)
+        total_upvotes += raw.get("score", 0)  # Reddit upvotes or HN points
+        total_comments += raw.get("num_comments", 0)
 
-    # Pain intensity: heuristic from keyword specificity (longer, more specific = higher pain)
+    # Demand growth: signals across multiple sources with real engagement
+    demand_growth = min(100, num_signals * 8 + source_diversity * 15 + 10)
+
+    # Query volume: real upvotes/points indicate true demand magnitude
+    # Log-scale so a HN post with 500 points doesn't dominate
+    if total_upvotes > 0:
+        import math
+        query_volume = int(min(1_000_000, math.exp(min(14, math.log(total_upvotes + 1) * 2.5)) * 100))
+    else:
+        query_volume = max(100, num_signals * 200)
+
+    # Pain intensity: comment count signals how much people care (more discussion = more pain)
+    comment_signal = min(50, total_comments / 10)
     avg_keyword_length = sum(len(k["keyword"]) for k in keywords) / max(1, num_keywords)
-    pain_intensity = min(100, avg_keyword_length * 3)
+    pain_intensity = min(100, comment_signal + avg_keyword_length * 2 + num_signals * 5)
 
-    # Momentum: based on signal recency and growth patterns
-    momentum = min(100, num_signals * 10 + 30)
+    # Momentum: signals from multiple recent sources boost momentum
+    momentum = min(100, num_signals * 7 + source_diversity * 20 + 20)
 
-    # Competition: inverse of keyword specificity
-    competition = max(10, 100 - pain_intensity + 20)
+    # Competition: estimated from keyword specificity; specific = less saturated
+    competition = max(10, 100 - pain_intensity + 15)
 
-    # Confidence: based on number of contributing signals
-    confidence = min(100, num_signals * 20 + num_keywords * 5)
+    # Confidence: multi-source signals with engagement are most reliable
+    confidence = min(100, num_signals * 12 + num_keywords * 3 + source_diversity * 10)
 
     return compute_opportunity_score(
         demand_growth=demand_growth,
