@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+@layer base {
+  * {
+    @apply border-border-subtle;
+  }
+
+  body {
+    @apply bg-surface-deepest text-text-primary font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-raised border border-border-subtle rounded-xl p-5 transition-all duration-200;
+  }
+
+  .card:hover {
+    @apply border-accent-blue/20 shadow-glow;
+  }
+
+  .score-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-mono font-medium;
+  }
+
+  .score-very-strong {
+    @apply bg-status-success/15 text-status-success;
+  }
+
+  .score-promising {
+    @apply bg-accent-blue/15 text-accent-blue;
+  }
+
+  .score-weak-signal {
+    @apply bg-status-warning/15 text-status-warning;
+  }
+
+  .score-low-priority {
+    @apply bg-text-muted/15 text-text-muted;
+  }
+
+  .filter-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm
+      bg-surface-deep border border-border-subtle text-text-secondary
+      hover:border-accent-blue/30 hover:text-text-primary transition-all cursor-pointer;
+  }
+
+  .filter-chip-active {
+    @apply bg-accent-blue/10 border-accent-blue/40 text-accent-blue;
+  }
+
+  .trend-up {
+    @apply text-status-success;
+  }
+
+  .trend-down {
+    @apply text-status-error;
+  }
+
+  .trend-stable {
+    @apply text-status-warning;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

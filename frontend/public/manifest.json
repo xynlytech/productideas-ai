@@ -1,0 +1,9 @@
+{
+  "name": "ProductIdeas AI",
+  "short_name": "ProductIdeas",
+  "description": "AI-powered demand intelligence for product discovery",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05070D",
+  "theme_color": "#3B82F6"
+}
